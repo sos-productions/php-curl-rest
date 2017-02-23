@@ -1,10 +1,10 @@
 <?php
 
 
-         /**
+    /**
 	*@brief php-curl-rest, example script to do some ftp and http without curl headaches... 
 	*
-	*@file shtooka-get.php
+	*@file index.php
 	*@package php_curl_rest 
 	*@note
 	*	V1.0 20170222 - first Version 

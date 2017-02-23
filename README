@@ -1,0 +1,13 @@
+
+	/**
+	*@file README
+	*@package php-shtooka-get
+	*@author see AUTHORS
+	*@see HISTORY for release information
+	*@see INSTALL for install instructions
+	*@brief  This file describes the goals of this project
+	*@note  This project allows to clone a swac repository its index and audio files from archives, here as example shtooka 
+	*It's mainly use is to help to fix broken index packages.
+	*Simply open http://localhost/php-swac-get/main.php into Firefox to use it.
+	*Modify user 
+	**/

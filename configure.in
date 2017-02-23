@@ -1,0 +1,21 @@
+AC_INIT()
+
+LDFLAGS="$LDFLAGS -L/usr/local/lib -L/usr/local/X11/lib"
+CFLAGS="$CFLAGS -I/usr/local/include"
+
+AC_MSG_CHECKING(--with-www=?)
+AC_ARG_WITH(www,
+	[  --with-www=<web server prefix> [default=/home/www]],
+	[ac_www=$withval],
+	[ac_www=/home/www/]
+)
+AC_MSG_RESULT($ac_www)
+if ! test -d $ac_www; then
+	 echo "** Warning: can't see your www root '$ac_www'"
+fi
+
+AC_SUBST(ac_www)
+
+AC_OUTPUT(
+Makefile
+)

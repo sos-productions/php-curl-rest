@@ -1,0 +1,12 @@
+
+	/**
+	*@file INSTALL
+	*@package php-curl-rest
+	*@author see credits.php
+	*@see HISTORY for release information
+	*@see README for project description and usage
+	*@brief  This file describes how to install the project files and what is required to run it
+	*@note This project requires :
+	*	1) a webserver (apache 1.3.x or 2.x) 
+	*	2) do in a terminal make install
+	**/

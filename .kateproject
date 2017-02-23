@@ -1,0 +1,9 @@
+{
+  "name": "php-curl-rest"
+, "files": [{ "directory":"." },{ "directory":"plugins", "recursive": 1  }, { "directory": "lib", "filters": ["*.php", "Find*.php"], "recursive": 1 } ]
+, "build": {
+    "directory": "build"
+  , "tarball" : "make tarball"
+  , "install": "make install"
+  }
+}

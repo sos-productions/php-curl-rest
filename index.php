@@ -30,12 +30,12 @@
       
       // *** Define your host, username, and password
       
-      $ftp_server="mayday";//ftp.sos-productions.com";  //
+      $ftp_server="myserver.com";
       $ftp_port=21;
-      $ftp_user_name="download@sos-productions.com";
-      $ftp_user_pass="8]eBO6Qia%o8";
+      $ftp_user_name="my_user";
+      $ftp_user_pass="my_pass";
       
-      
+      die("Please setup your FTP connections params in this file");
 
       //directory relative to this script
       $localDir="download/";

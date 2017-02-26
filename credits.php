@@ -13,15 +13,15 @@
 	*  For now I made FTP(S) and HTTP plugin, the plugins command are not limited to standard one
 	*   simply add a file command under the directory matching the command name...and voila.
 	*and is under copyrights of the author mentioned under RELEASE_AUTHOR
-	*@version  V1.0
+	*@version  V2.0
 	*@note
-	*	V1.0 (31.01.2017) First version
+	*	Start of project : 31.01.2017 
 	**/
 
 	//==============8< CREDITS STARTS HERE===========8<=====================
 	define("RELEASE_PROJECT","php-curl-rest");
-	define("RELEASE_VERSION","1.0");
-	define("RELEASE_DATE","22.02.2017");
+	define("RELEASE_VERSION","2.0");
+	define("RELEASE_DATE","26.02.2017");
 	define('RELEASE_COPYRIGHT','2017');
 	define("RELEASE_AUTHOR","Olivier Lutzwiller, Michael C Brant");
 	define("RELEASE_LANGUAGE", "en"); 

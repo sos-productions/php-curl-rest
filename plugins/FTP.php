@@ -38,6 +38,7 @@
       *		0.5 - 14.02.2017 - Upload added works (requires reset)
       *		1.0 - 16.02.2017 - Class works with logging , comments etc...
       *		1.1 - 17.02.2017 - RNTO FIX added
+      *		1.2 - 23.02.2017 - 
       * @internal       
       *   I have tried to reproduce the Php equivalent to
       *
@@ -95,40 +96,108 @@
 	
 		    // *** Class variables
 
-		    /** @var current username to log in */
+		
+		    /**
+		    * 
+		    *
+		    * @var string current username to log in */
 		    private $user;
 
-		    /** @var current user password to log in */	
+		    /**
+		    * Current user password to log in
+		    *
+		    * @var string  */	
 		    private $pass;
+		    
+		    /**
+		    * Flag to determine if SSL is used
+		    * 
+		    * @var boolean
+		    */
+		    protected $use_ssl = false;
+		  
+		    /**
+		    * Flag to determine is we are to run in test mode where host's SSL cert is not verified
+		    * 
+		    * @var boolean
+		    */
+		    protected $use_ssl_test_mode = false;
 			    
-		    /** @var string current remote path */	
+		    /**
+		    * Flag to determine is we are in ftpes instead of ftps
+		    * 
+		    * @var boolean
+		    */
+		    protected $ftpes = false;    
+			    
+			    
+		    /**
+		    * current remote path
+		    *
+		    * @var string  
+		    */	
 		    private $path;
 		    
-		     /** @var string server port */
+		    /**
+		    *  server port number
+		    *
+		    * @var interger 
+		    */
 		    private $port;
 		    
-		     /** @var string server domain */
+		    /**
+		    * server domain
+		    *
+		    * @var string  
+		    */
 		    private $server;
 
-		    /** @var resource cURL resource handle */
+		    /**
+		    * cURL resource handle
+		    *
+		    * @var resource  
+		    */
 		    private $curl_handle;
 		    
-		    /** @var array current cURL options */
+		    /**
+		    * current cURL options
+		    *
+		    * @var array 
+		    */
 		    public $options;
 		    
-		    /** @var array cURL options available */
+		    /**
+		    * cURL options available
+		    *
+		    * @var array  
+		    */
 		    private $options_available;
 		    
-		    /** @var handle to debug file */
+		    /**
+		    * to debug file
+		    *
+		    * @var handle 
+		    */
 		     private $stderr;
 		    
-		    /** @var bool true if connected or logged in **/
+		    /**
+		    * true if connected or logged in
+		    *
+		    * @var bool  
+		    */
 		    public $connected;
 		    
-		    /** @var string last command */
+		    /**
+		    *  last command
+		    *
+		    * @var string 
+		    */
 		    public $command;
 	
-		    /** @var array commands */
+		    /**
+		    *  commands definition pool
+		    *
+		    * @var array*/
 		    public $commands =array();
 		    
 		     // *** Login facility
@@ -213,7 +282,7 @@
    		      * @param $success boolean - the output flag, will be set to true if listing succeed
 		      * @return array
 		      */
-		      function ftp_curl_list($ch,$options,$url,$ftplistonly=true,&$success){
+		      function ftp_curl_list(&$ch,&$options,$url,$ftplistonly=true,&$success){
 		      //-------------------------------------------------------------------
 		      
 		      
@@ -265,9 +334,12 @@
 		    function ftp_curl_cwd(&$ch,&$options,$dir,&$success) {
 		    //-------------------------------------------
 		    
+			if($dir == "/tests") $this->logMessage("Current is now ".$dir);
+		    
 			if(($dir[0]!="/") && ($dir[0] != ".")) $dir=$this->path.$dir; //relative path has to be converted into absolute path
 			
 			 $entries=$this->ftp_curl_quote($ch,$options,"CWD $dir",$success);
+			 
 			  if($success) {
 				$this->path=rtrim($dir,"/")."/";
 			  }
@@ -445,7 +517,7 @@
 		    * @param $success bool - true if success, false if failure, set automaticaly
 		    * @return array
 		    */
-		     function ftp_curl_put(&$ch,$options,$localFileName,$serverFilename,&$success) {
+		     function ftp_curl_put(&$ch,&$options,$localFileName,$serverFilename,&$success) {
 		    //----------------------------------------------
 		    
 			$this->ftp_curl_reset($ch,$options,$serverFilename);
@@ -776,7 +848,8 @@
 			  $ftpUser=$this->user;
 			  if(!$success) {
 			      $this->logMessage('FTP connection has failed!');    
-			      $this->logMessage('Attempted to connect to ' . $server . ' for user ' . $ftpUser,true);
+			      $this->logMessage('Attempted to connect to ' . $server . ' for user ' . $ftpUser);
+			      $this->logVar($options,true);
 			  }else {
 			      $this->logMessage('Connected to ' . $server . ', for user ' . $ftpUser);
 			  }
@@ -817,13 +890,10 @@
 			      $halt=($haltonerror)? "HALT ON ERRORS FOR $quote" :"IGNORE ERRORS OF $quote";
 			      $this->logMessage($halt);
 			        
-			      if(preg_match("/^RNTO/",$quote)) {
-				  $this->logMessage("START $quote"); 
-			      }
-			        
 			      $this->ftp_curl_set_option($ch,"CURLOPT_QUOTE",array($quote));
-			      
+			       
 			      $data=curl_exec($ch);
+			      
 			      
 			      //!NOTE According to syslog, RNTO is BUGGY, it returns 550 error code, because
 			      //it does [retr] [infile] instead of [retr] [outfile] ans rnto twice!
@@ -1049,7 +1119,9 @@
 		    function ftp_curl_callback_on_dir(&$ch,&$options,$dir,$callback="inspect_items",$max_depth=0,&$success) {
 		    //-------------------------------------------------------------------------------------------
 			$items = array();
+			if($dir == "/tests") $this->logMessage("Current START".$dir);
 			$entries=$this->ftp_curl_cwd($ch,$options,$dir,$success);
+			
 			//var_dump($entries);
 			if($success) {	  
 			      $dir=rtrim($dir,"/")."/";
@@ -1169,13 +1241,21 @@
 			      $options["CURLOPT_RETURNTRANSFER"]=true; 
 			  }
 			  
-			  //SSL stuff
-			  $options["CURLOPT_SSL_VERIFYPEER"]=0;  //use for development only; unsecure 
-			  $options["CURLOPT_SSL_VERIFYHOST"]=0;  //use for development only; unsecure
-			  $options["CURLOPT_FTP_SSL"]=CURLOPT_FTPSSLAUTH;
-			  $options["CURLOPT_FTPSSLAUTH"]=CURLFTPAUTH_TLS;
-			  
-			  //$options[CURLOPT_SSLVERSION]=3;
+			   //SSL stuff
+			   
+			    if ($this->use_ssl) {
+			    
+				  if($this->use_ssl_test_mode) {
+				      // if not in production environment, we want to ignore SSL validation
+				      $options["CURLOPT_SSL_VERIFYPEER"]=0;  //use for development only; unsecure 
+				      $options["CURLOPT_SSL_VERIFYHOST"]=0;  //use for development only; unsecure
+				  
+				  }
+				  $options["CURLOPT_FTP_SSL"]=CURLOPT_FTPSSLAUTH;
+				  $options["CURLOPT_FTPSSLAUTH"]=CURLFTPAUTH_TLS;
+				  
+				  //$options[CURLOPT_SSLVERSION]=3;
+			  }
 			  //end SSL
 			  
 			  // cURL FTP enables passive mode by default, so disable it by enabling the PORT command and allowing cURL to select the IP address for the data connection
@@ -1236,9 +1316,19 @@
 	            function ftp_curl_set_option(&$ch,$option_name, $option_value) {
 		    //-------------------------------------------------------------------------------
 			$options_available=$this->options_available;
-		    
-			if ((!array_key_exists($option_name,$options_available))||(!curl_setopt( $ch,$options_available[$option_name], $option_value ))) 
-					    $this->logMessage( sprintf( 'Can not set cURL option: %s [%s] - %s', $option_name,  curl_errno( $ch ), curl_error( $ch )  ),true);
+			//if option not supported:::
+			if (!array_key_exists($option_name,$options_available)) {
+			      $this->logMessage( sprintf( 'Can not set cURL option "%s" [%s] - %s : this option is not supported should be in this list', $option_name,  curl_errno( $ch ), curl_error( $ch )  ));
+			      $this->logVar($options_available,true);
+			}
+			if(!curl_setopt( $ch,$options_available[$option_name], $option_value )) {
+			      $this->logMessage( sprintf( 'Can not set cURL option "%s" [%s] - %s : CURL_SETOPT FAILED SETTING TO ', $option_name,  curl_errno( $ch ), curl_error( $ch ),$option_value  ));
+			      $this->logVar(curl_error($ch));
+			      $this->logVar(curl_getinfo($ch));
+			      $this->logVar(curl_errno($ch));
+			      $this->logVar($option_value,true); 
+			      
+			}
 		    }
 		    
 		    /**
@@ -1316,48 +1406,109 @@
 		    function ftp_curl_url($path="") {
 		    //---------------------------------
 			if(!$path) $path=$this->path;
-			return "ftp://{$this->server}{$path}";
+			
+			if ($this->use_ssl) {
+			    if($this->ftpes) {
+				$proto='ftp'; //Do no use ftpes here, it will not be recognized
+			    }else {
+				$proto='ftps';
+			    }
+			} else {
+			    $proto='ftp';
+			}
+			return "$proto://{$this->server}{$path}";
 		    }
 		 
-		  
-
+		    /**
+		    * Sets whether SSL is to be used
+		    * 
+		    * @name set_use_ssl
+		    * @param boolean $value
+		    * @return FTP_curl_client
+		    * @throws Exception
+		    */
+		    public function set_use_ssl($value = NULL) {
+			if (!is_bool($value)) {
+			    throw new Exception('Non-boolean value passed as parameter - ' . __METHOD__ . ' Line ' . __LINE__);    
+			}
+			$this->use_ssl = $value;
+			
+			return $this;
+		    }
 		    
-		   /**
-		  * Setup parameters to FTP server
-		  *
-		  * @constructor
-		  * @access public
-		  * @since 1.0
-		  * @param string $username
-		  * @param string $password
+		    /**
+		    * Sets whether SSL Test Mode is to be used
+		    * 
+		    * @name set_use_ssl_test_mode
+		    * @param boolean $value
+		    * @return FTP_curl_client
+		    * @throws Exception
+		    */
+		    public function set_use_ssl_test_mode($value = NULL) {
+			if (!is_bool($value)) {
+			    throw new Exception('Non-boolean value passed as parameter - ' . __METHOD__ . ' Line ' . __LINE__);    
+			}
+			$this->use_ssl_test_mode = $value;
+			
+			return $this;
+		    }
+		    
+		    /**
+		    * Sets whether FTPES should be used instead of FTPS
+		    * 
+		    * @name set_explicit
+		    * @param boolean $value
+		    * @return FTP_curl_client
+		    * @throws Exception
+		    */
+		    public function set_explicit($value = NULL) {
+			if (!is_bool($value)) {
+			    throw new Exception('Non-boolean value passed as parameter - ' . __METHOD__ . ' Line ' . __LINE__);    
+			}
+			$this->ftpes = $value;
+			
+			return $this;
+		    }
+		    
+		    
+		  /**
+		  * Parse server url determines the protocol and save the server name
+		  * 
+		  * @name set_server
 		  * @param string $server
-		  * @param int $port
-		  * @param string $initial_path
-		  * @param bool $passive_mode
-		  * @return \FTP_curl_client
-		  */
-		  public function __construct( $username, $password, $server, $port = 21, $initial_path = '/', $passive_mode = false ) {
-		  //=====================================================================================================================
-	
-		      $this->user = $username;
-		      $this->pass = $password;
+		  */  
+		  function set_server($server) {
+		  //-----------------------------------
+		      $ftps_pattern = '#(ftps|ftpes)://#i';
+		      $ftp_pattern = '#ftp//:#i';
+		
+		      if (preg_match($ftps_pattern,  $server,$matches)) {
+			  // this needs to be SSL request
+			  $this->set_use_ssl(true);
+			  $this->set_use_ssl_test_mode(true);
+			  if($matches[1] == "ftpes") {
+			       $this->set_explicit(true);
+			       $server = str_ireplace('ftpes://', '', $server);
+			   } else {
+			      $this->set_explicit(false);
+			      $server = str_ireplace('ftps://', '', $server);
+			  }
+		      } else if (preg_match($ftp_pattern, $server)) {
+			  $server = str_ireplace('ftp://', '', $server);
+			  $this->set_use_ssl(false);
+			  $this->set_use_ssl_test_mode(false);
+			  $this->set_explicit(false);
+		      } 
 		      $this->server = $server;
-		      $this->path = $initial_path;
-
-		      // check for blank username
-		      if ( ! $username )
-			      $this->logMessage( 'FTP Username is blank.',true );
-		      // don't check for blank password (highly-questionable use case, but still)
-		      // check for blank server
-		      if ( ! $server )
-			      $this->logMessage( 'FTP Server is blank.',true);
-		      // check for blank port
-		      if ( ! $port )
-			      $this->logMessage( 'FTP Port is blank.',true);
-			      
-		      // set host/initial path
-		      $this->url = $this->ftp_curl_url();
-		      
+		  }
+		   
+		   /**
+		  * Init curl
+		  *
+		  * @access protected
+		   */
+		   protected function _init() {
+			    
 		      // setup connection
 		      $this->curl_handle = curl_init();
 		      
@@ -1365,6 +1516,74 @@
 		      if ( ! $this->curl_handle )
 			      $this->logMessage( 'Could not initialize cURL.' );
 			      
+		      // Will be true when loggin is successful
+		      $this->connected=false;		 
+		   
+		   }
+		   
+		   
+		  /**
+		  * Set username
+		  *
+		  * @access public
+		  * @since 1.1
+		  * @param string $username
+		  * @param string $password
+		   */
+		   public function set_username($username) {
+			  // check for blank username
+			    if ( ! $username )
+				    $this->logMessage( 'FTP Username is blank.',true );
+				    
+			  $this->user = $username;
+			  
+			  $this->_init();
+		   }
+		   
+		   
+		   /**
+		  * Set password 
+		  *
+		  * @access public
+		  * @since 1.1
+		  * @param string $password
+		   */
+		   public function set_password($password) {
+			  // don't check for blank password (highly-questionable use case, but still)
+			    $this->pass = $password;
+		   }
+		   
+		   
+		   /**
+		  * Setup parameters to FTP server
+		  *
+		  * @constructor
+		  * @access public
+		  * @since 1.1
+		  * @param string $server  server url with protocol or just domain
+		  * @param int $port
+		  * @param string $initial_path
+		  * @param bool $passive_mode
+		  * @return \FTP_curl_client
+		  */
+		  public function __construct( $server, $port = 21, $initial_path = '/', $passive_mode=false) {
+		  //============================================================================================
+	
+		      // check for blank server
+		      if ( ! $server )
+			      $this->logMessage( 'FTP Server is blank.',true);
+		      // check for blank port
+		      if ( ! $port )
+			      $this->logMessage( 'FTP Port is blank.',true);
+			      
+		  
+		      $this->set_server($server);
+		      $this->path = $initial_path;	      
+			      
+		      // set host/initial path
+		      $this->url = $this->ftp_curl_url();
+		  
+
 		      // A cache of options      
 		      $options=array();
 		      $this->options=$options;
@@ -1378,18 +1597,17 @@
 		      // for error msg logging
 		     // $this->stderr= fopen("curl.txt", "w"); 
 		      
-		      // Will be true when loggin is successful
-		      $this->connected=false;
-		      
+		   
 		      //Registers once commands and their class
 		      if(!$this->commands) {
 			  $files=include_all_from_dir(dirname(__FILE__)."/FTP");
 			
 			  foreach($files as $file) {
-			      $command=str_replace(".php","",basename($file));
-			      $class_command="FTP_$command";
-			      $this->commands[]=$command;
-			      parent::addCommand($command,new $class_command($this));
+			      $commandname=str_replace(".php","",basename($file));
+			      $class_command="FTP_$commandname";
+			      $command=&new $class_command($this);
+			      $this->commands[$commandname]=&$command;
+			      parent::addCommand($commandname,$command);
 			  }
 		      }
 		  }
@@ -1406,7 +1624,7 @@
 		    * @param bool $success - true if success, false if failure, set automaticaly
 		    * @return array
 		    */
-		   public function changeDir($directory,&$success)
+		/*  public function changeDir($directory,&$success)
 		  {
 			
 			$ftp_url=$this->ftp_curl_url();
@@ -1422,7 +1640,7 @@
 			      $this->logMessage("Current directory is now: $remoteDir ");
 			 }
 			return $items;
-		  }
+		  }*/
 		    
 		    /**
 		    * List recursively all items of a given directory
@@ -1435,7 +1653,7 @@
 		    * @param bool $success - true if success, false if failure, set automaticaly
 		    * @return array
 		    */
-		    public function listallItemsRecursively($directory,$max_depth=CURL_FTP_MAXDEPTH,&$success) 
+		   /* public function listallItemsRecursively($directory,$max_depth=CURL_FTP_MAXDEPTH,&$success) 
 		    {
 			
 			$ftp_url=$this->ftp_curl_url();
@@ -1448,7 +1666,7 @@
 			$items=$this->ftp_curl_callback_on_dir($ch,$options,$remoteDir,"inspect_items",$max_depth,$success);
 			
 			return $items;	
-		    }
+		    }*/
 		    
 		    /**
 		    * removes a given directory and returns its parent entries
@@ -1460,7 +1678,7 @@
 		    * @param bool $success - true if success, false if failure, set automaticaly
 		    * @return array
 		    */
-		     public function removeDirectory($directory,$max_depth=0,&$success) 
+		   /*  public function removeDirectory($directory,$max_depth=0,&$success) 
 		     {
 	
 			  $ftp_url=$this->ftp_curl_url();
@@ -1475,7 +1693,7 @@
 			      $this->logMessage("DIR SUCCESSFULLY DELETED: $remoteDir ");
 			  }
 			  return $items;	
-		    }
+		    }*/
 		    
 		    /**
 		    * create a new directory and returns its parent entries
@@ -1489,7 +1707,7 @@
 		    * @param bool $success - true if success, false if failure, set automaticaly
 		    * @return array
 		    */
-		     public function createDirectory($directory,$max_depth=0,&$success) 
+		     /*public function createDirectory($directory,$max_depth=0,&$success) 
 		     {
 			  $ftp_url=$this->ftp_curl_url();
 			  $this->ftp_curl_set_connection_settings($ftp_url);
@@ -1509,7 +1727,7 @@
 			  }
 			 
 			  return $items;	
-		    }
+		    }*/
 		    
 		    /**
 		    * Deletes a file 
@@ -1519,7 +1737,7 @@
 		    * @param $success boolean - the output flag, will be set to true if command succeed
 		    * @return array
 		    */
-		    public function deleteFile($file,&$success) 
+		    /*public function deleteFile($file,&$success) 
 		    {
 		    
 			  $ch=&$this->curl_handle;
@@ -1538,7 +1756,7 @@
 			  }
 			  
 			  return $items;
-		    }
+		    }*/
 		    
 		    
 		    /**
@@ -1549,17 +1767,17 @@
 		    * @param $success boolean - the output flag, will be set to true if command succeed
 		    * @return array
 		    */
-		    public function renameFrom($filename,&$success) 
+		   /* public function renameFrom($filename,&$success) 
 		    {
 		    
 			  $ch=&$this->curl_handle;
 			  $options=&$this->options;
 			  
 			  
-			/*  $ftp_url=$this->ftp_curl_url();
-			  $this->ftp_curl_set_connection_settings($ftp_url);
-			
-			  $filepath=$this->ftp_curl_resolve_path($file);*/
+			//  $ftp_url=$this->ftp_curl_url();
+			//  $this->ftp_curl_set_connection_settings($ftp_url);
+			//
+			//  $filepath=$this->ftp_curl_resolve_path($file);
 			  
 			  
 			  $this->logMessage("START");
@@ -1572,7 +1790,7 @@
 			  }
 			  
 			  return $items;
-		    }
+		    }*/
 		    
 		    
 		        
@@ -1584,17 +1802,17 @@
 		    * @param $success boolean - the output flag, will be set to true if command succeed
 		    * @return array
 		    */
-		    public function renameTo($filename,&$success) 
+		    /*public function renameTo($filename,&$success) 
 		    {
 		    
 			  $ch=&$this->curl_handle;
 			  $options=&$this->options;
 			  
 			  
-			/*  $ftp_url=$this->ftp_curl_url();
-			  $this->ftp_curl_set_connection_settings($ftp_url);
+			//  $ftp_url=$this->ftp_curl_url();
+			//  $this->ftp_curl_set_connection_settings($ftp_url);
 			
-			  $filepath=$this->ftp_curl_resolve_path($file);*/
+			//  $filepath=$this->ftp_curl_resolve_path($file);
 			  
 			  $items=$this->ftp_curl_rename_to($ch,$options,$filename,$success);
 			  
@@ -1604,7 +1822,7 @@
 			  }
 			  
 			  return $items;
-		    }
+		    }*/
 		    
 		   /**
 		    * Download a file locally
@@ -1614,17 +1832,17 @@
 		    * @param $success boolean - the output flag, will be set to true if command succeed
 		    * @return array
 		    */
-		    public function getFile($filename,&$success) 
+		   /* public function getFile($filename,&$success) 
 		    {
 		    
 			  $ch=&$this->curl_handle;
 			  $options=&$this->options;
 			  
 			  
-			/*  $ftp_url=$this->ftp_curl_url();
-			  $this->ftp_curl_set_connection_settings($ftp_url);
+			//  $ftp_url=$this->ftp_curl_url();
+			//  $this->ftp_curl_set_connection_settings($ftp_url);
 			
-			  $filepath=$this->ftp_curl_resolve_path($file);*/
+			//  $filepath=$this->ftp_curl_resolve_path($file);
 			  
 			  $items=$this->ftp_curl_get($ch,$options,$filename,$success);
 			  
@@ -1634,7 +1852,7 @@
 			  }
 			  
 			  return $items;
-		    }
+		    }*/
 		    
 		    /**
 		    * upload a content on the server whith a remote name in the current directory and returns its parent entries
@@ -1649,7 +1867,7 @@
 		    * @param $success bool - true if success, false if failure, set automaticaly
 		    * @return array
 		    */
-		    public function uploadFileContent($filename,$content,&$success) 
+		    /*public function uploadFileContent($filename,$content,&$success) 
 		    {
 			$ch=&$this->curl_handle;
 			$options=&$this->options;
@@ -1664,7 +1882,7 @@
 			}
 			
 			return $items;
-		    }
+		    }*/
 		    
 		    /**
 		    * upload a local file on the server whith a remote name in the current directory and returns its parent entries
@@ -1678,7 +1896,7 @@
 		    * @param $success bool - true if success, false if failure, set automaticaly
 		    * @return array
 		    */
-		    public function uploadFile($localFileName,$serverFilename,&$success) 
+		    /*public function uploadFile($localFileName,$serverFilename,&$success) 
 		    {
 			  $ch=&$this->curl_handle;
 			  $options=&$this->options;
@@ -1692,7 +1910,7 @@
 			  }
 			  
 			  return $items;
-		    }
+		    }*/
 		    
 		    
 		    /**
@@ -1707,7 +1925,7 @@
 		    * @param $success bool - true if success, false if failure, set automaticaly
 		    * @return array
 		    */
-		    public function downloadFileContent($serverFilename,&$success) 
+		  /*  public function downloadFileContent($serverFilename,&$success) 
 		    {
 			  $ch=&$this->curl_handle;
 			  $options=&$this->options;
@@ -1720,7 +1938,7 @@
 			      $this->logMessage("CONTENT SUCCESSFULLY DOWNLOADED FROM $serverFilename");
 			  }
 			  return $items;
-		    }
+		    }*/
 			
 		    /**
 		    * download file from the server 
@@ -1734,7 +1952,7 @@
 		    * @param $success bool - true if success, false if failure, set automaticaly
 		    * @return array
 		    */
-		    public function downloadFile($serverFilename,$localFile,&$success) 
+		   /* public function downloadFile($serverFilename,$localFile,&$success) 
 		    {
 			  $ch=&$this->curl_handle;
 			  $options=&$this->options;
@@ -1746,7 +1964,7 @@
 			      $this->logMessage("FILE SUCCESSFULLY DOWNLOADED FROM $serverFilename TO LOCAL $localFile");
 			  }
 			  return $items;
-		    }
+		    }*/
 			
 			
 		    /**
@@ -1759,12 +1977,12 @@
 		    * @param $success bool - true if success, false if failure, set automaticaly
 		    * @return string
 		    */
-		    public function printWorkingDir(&$success) 
+		    /*public function printWorkingDir(&$success) 
 		    {
 			  $ch=&$this->curl_handle;
 			  $options=&$this->options;
 			  return $this->ftp_curl_quote($ch,$options,"PWD",$success);	 
-		    }
+		    }*/
 			
 		    /**
 		    * returns the list of files of a given directory its content
@@ -1777,7 +1995,7 @@
 		    * @param $success bool - true if success, false if failure, set automaticaly
 		    * @return array
 		    */
-		    public function namedList($directory,&$success) 
+		   /* public function namedList($directory,&$success) 
 		    {
 			  $ch=&$this->curl_handle;
 			  $options=&$this->options;
@@ -1787,7 +2005,7 @@
 			  
 			  return $list;
 			 
-		    }
+		    }*/
 		    
 		    /**
 		    * returns the files items of a given directory its content
@@ -1800,7 +2018,7 @@
 		    * @param $success bool - true if success, false if failure, set automaticaly
 		    * @return array
 		    */
-		    public function rawList($directory,&$success) 
+		   /* public function rawList($directory,&$success) 
 		    {
 			  $ch=&$this->curl_handle;
 			  $options=&$this->options;
@@ -1809,7 +2027,7 @@
 			  $entries=$this->ftp_curl_list($ch,$options,$path,$ftplistonly,$success);
 			  
 			  return $entries;
-		    }
+		    }*/
 		    	
 
 		    /**
@@ -1819,7 +2037,7 @@
 		    * @name command
 		    * @access public
 		    * @since 1.0
-		    * @version 1.0
+		    * @version 1.1
 		    * @param $command string - the command name
 		    * @param $data string - the first parameter
 		    * @param $extra string - the second parameter
@@ -1835,15 +2053,10 @@
 			 
 			$success =false;
 			
-			$commands=$this->commands;
+			$commands=array_keys($this->commands);
 			
 			if(in_array($command,$commands)) {
 			
-			       /* $remoteDir=$data;
-				if(DEBUG_CURL_FTP_INSPECT_ITEM) $this->logMessage("<dl><dt><u><b>$command $remoteDir</b> gives</u></dt>");
-				$items=$this->changeDir($remoteDir,$success);
-				if(DEBUG_CURL_FTP_INSPECT_ITEM) $this->logMessage("</dl>");  
-				*/
 				$args=func_get_args();
 				$args[0]=&$success;
 				$items=call_user_func_array(array($this, "FTP_{$command}_run"),$args);
@@ -1851,93 +2064,8 @@
 			
 			}else {
 			
-			   die("<BR> COMMAND '$command' NOT EXTRACTED");
+			      $this->logMessage("<BR> COMMAND '$command' NOT SUPPORTED",true);
 			    
-			    switch($command) {
-				/*case "CWD":
-				case "CD":
-				case "MLSD"://MLSD can not be called directly, we use CWD instead who provide list of files
-				case "LS":
-				    $remoteDir=$data;
-				    if(DEBUG_CURL_FTP_INSPECT_ITEM) $this->logMessage("<dl><dt><u><b>$command $remoteDir</b> gives</u></dt>");
-				    $items=$this->changeDir($remoteDir,$success);
-				    if(DEBUG_CURL_FTP_INSPECT_ITEM) $this->logMessage("</dl>");
-				    break;
-				case "LSR": //Recursive listing
-				    $remoteDir=$data;
-				    $max_depth=($extra) ? $extra:CURL_FTP_MAXDEPTH;
-				    if(DEBUG_CURL_FTP_INSPECT_ITEM) $this->logMessage("<dl><dt><u><b>$command $remoteDir</b> gives</u></dt>");
-				    $items=$this->listallItemsRecursively($directory,$max_depth,$success);
-				    if(DEBUG_CURL_FTP_INSPECT_ITEM) $this->logMessage("</dl>");
-				    break;*/
-			      case "RNFR":
-				    $inFile=$data;
-				    $items=$this->renameFrom($inFile,$success);
-				    break;
-			      case "RNTO":
-				    $outFile=$data;
-				    $items=$this->renameTo($outFile,$success);
-				    break;
-				case "RMD":
-				    $remoteDir=$data;
-				    if(strtoupper($data) == "-R") {
-					$remoteDir=$extra; 
-					$max_depth=CURL_FTP_MAXDEPTH;
-				    }else {
-					$remoteDir=$data;
-					$max_depth=0;
-				    }
-				    $items=$this->removeDirectory($remoteDir,$max_depth,$success);
-				    break;	
-				case "MKD":
-				    if(strtoupper($data) == "-P") { //Recursive
-					$remoteDir=$extra; 
-					$max_depth=CURL_FTP_MAXDEPTH;
-				    }else {
-					$remoteDir=$data;
-					$max_depth=0;
-				    }
-				    $items=$this->createDirectory($remoteDir,$max_depth,$success);
-				    break;
-				case "DELE":
-				    $remoteFile=$data;
-				    $items=$this->deleteFile($remoteFile,$success);
-				    break;
-				case "UPLOAD": //Upload content to current path
-				    $filename=$data;
-				    $content=$extra;
-				    $items=$this->uploadFileContent($filename,$content,$success);
-				    break;
-				case "PUT":
-				    $localFileName=$data;
-				    $serverFilename=$extra;
-				    $items=$this->uploadFile($localFileName,$serverFilename,$success);
-				    break;
-				case "DOWNLOAD":
-				    $serverFilename=$data;
-				    $items=$this->downloadFileContent($serverFilename,$success);
-				    break;
-				case "RETR":    
-				case "GET":
-				    $serverFilename=$data;
-				    $localFilename=$extra;
-				    $items=$this->downloadFile($serverFilename,$localFilename,$success);
-				    break;
-				case "NLIST":
-				    $remoteDir=$data; 
-				    $items=$this->namedList($remoteDir,$success);
-				    break;
-				case "PWD":
-				    $items=$this->printWorkingDir($success);
-				    break;
-				case "RAWLIST":
-				    $remoteDir=$data;
-				    $items=$this->rawList($remoteDir,$success);
-				    break;
-				default:
-				    $this->logMessage("UNSUPPORTED COMMAND '$command'",true);
-			    }
-
 			}
 		      
 			if(!$success&&is_bool($success)) {  //success is null when error has already been processed
@@ -1954,6 +2082,12 @@
 		    
 		    }
 	
+		/**
+		  FIXME: this is needed to access private curl_handle from commands class, it'is uggly but I did not find nicer other way
+		**/
+		public function _get_curl_handle() {
+		      return  $this->curl_handle;
+		}
 	    
 		/**
 		* Attempt to close cURL handle

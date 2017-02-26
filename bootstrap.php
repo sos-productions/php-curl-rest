@@ -6,9 +6,10 @@
       * 
       *	@file bootstrap.php
       * @package php_curl_rest
-      * @version 1.0
+      * @version 1.1
       * @author Olivier Lutzwiller / all-informatic.com
       * @note .
+      *		1.1 - 25.02.2017 - get_plugin_instance added
       *		1.0 - 17.02.2017 - First version
       **/
  
@@ -17,8 +18,17 @@
       }
       
       
-      //Recursives functions, faster and eats less memory!
 
+      /**
+	*
+	* Retrieve the list from directory $dir of files recursively
+	*
+	*@name list_files
+	*@access public
+	*@param string dir - a given directory pathname
+	*@param array files - output reults passed by adress
+	-@param boolean recurse - false by default, else look within all subdirs found
+	**/
 	function list_files($dir,&$files,$recurse=false) {
 	//-----------------------------------
 	  // $files=getFilesFromDir($dir);
@@ -40,7 +50,15 @@
 	  return count($files);
 	}
 
-	
+	  /**
+	*
+	* Auto include all the file found in a given directory and return the list of file included
+	*
+	*@name include_all_from_dir
+	*@access public
+	*@param string dir - a given directory pathname
+	*@return array
+	**/
 	function include_all_from_dir($dir) {
 	//----------------------------------
 	    $files=array();
@@ -54,7 +72,7 @@
       
       
 	  /** 
-	  * Plugins Container
+	  * Commands Container
 	  *
 	  * @class CommandsContainer
 	  * @usage
@@ -69,6 +87,15 @@
 					    parent::addCommand("childN",new Main_childN());
 			      }
 		     }		
+		     
+		     equivalent to
+		     
+		     class Main extends Main_child, ...,Main_childN {
+		     
+		     
+		     }
+	  * @note Child will not access Parent methods on the same level but from,
+	  *   Child methods will see as if it was extended methods
 	  
 	  ***/
 	  abstract class CommandsContainer
@@ -114,7 +141,7 @@
 		
 		function &getCommand($name) 
 		{
-			    foreach($this->_exts as &$ext)
+		    foreach($this->_exts as &$ext)
 		    {
 			foreach($ext as $from => &$subext) {
 				    if($from == $name) 
@@ -126,7 +153,10 @@
 	  }
 
 	
-	      
+      /**
+      @class curl_rest
+      @desc Universal REST client
+      */
       class curl_rest {	
 		
 	    public $type;
@@ -134,7 +164,7 @@
 	    
 	    /**
 	    *
-	    *  Get the rest client instance 
+	    *  Set rest client type
 	    *
 	    *@note this is the main interface
 	    *@constructor
@@ -143,6 +173,38 @@
 	    function __construct($type){
 	    //==========================
 		$this->type=$type;
+	    }
+	    
+	    
+	    /**
+	    *
+	    *  Get the plugin holding the client instance 
+	    *
+	    *@name get_plugin_instance
+	    *@access public
+	    *@note this is used by info.php
+	    *@name curl_rest_client
+	    *@param string type - a plugin type, ie for now FTP or HTTP 
+	    **/
+	    public function &get_plugin_instance($type,$params) {
+	    //--------------------------------------
+		  $plugin_dir=dirname(__FILE__)."/plugins";
+		  
+	        if(file_exists("{$plugin_dir}/{$type}.php")) {
+		  
+		  $class="{$type}_curl_client";
+		  if(!class_exists($class))
+		      include("{$plugin_dir}/{$type}.php");
+		  
+		  //new $class($params[0],....,$params[n]);
+		  $class = new ReflectionClass($class);
+		  $instance = $class->newInstanceArgs($params);
+		  
+		} else {
+		  $instance=NULL;
+		}
+		return $instance;
+		
 	    }
 	    
 	    /**
@@ -155,26 +217,19 @@
 	    *@name curl_rest_client
 	    *@param string type - a plugin type, ie for now FTP or HTTP 
 	    **/
-	    function client() {
+	    public function client() {
 	    //------------------
 		    $type=strtoupper($this->type);
-		    $plugin_dir=dirname(__FILE__)."/plugins";
-		    if(file_exists("{$plugin_dir}/{$type}.php")) {
-			
-			$class="{$type}_curl_client";
-			if(!class_exists($class))
-			    include("{$plugin_dir}/{$type}.php");
-			//new $class($params[0],....,$params[n]);
-			$params = func_get_args();
-			
-			$class = new ReflectionClass($class);
-			$instance = $class->newInstanceArgs($params);
-			$this->client=&$instance;
-			return $instance;
-			
-		    }else {
+	
+ 		    $params = func_get_args();
+		    $instance=&$this->get_plugin_instance($type,$params);
+		    
+		    if(is_null($instance)){
 			die("Unsupported REST client type $type");
 		    }
+		     $this->client=&$instance;
+		    return $instance;
+		   
 	    }
 	    
 	    /**

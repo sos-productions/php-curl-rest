@@ -145,16 +145,18 @@ class HTTP_curl_client extends rest_client {
 	//==================================
 	    parent::__construct();
 	    $this->set_remote_host($host);
+	 
 	    
 	    //Registers once commands and their class
 	    if(!$this->commands) {
 		$files=include_all_from_dir(dirname(__FILE__)."/HTTP");
 	      
 		foreach($files as $file) {
-		    $command=str_replace(".php","",basename($file));
-		    $class_command="HTTP_$command";
-		    $this->commands[]=$command;
-		    parent::addCommand($command,new $class_command($this));
+		    $commandname=str_replace(".php","",basename($file));
+		    $class_command="HTTP_$commandname";
+		    $command=&new $class_command($this);
+		    $this->commands[$commandname]=&$command;
+		    parent::addCommand($commandname,$command);
 		}
 	    }
 	}
@@ -205,12 +207,9 @@ class HTTP_curl_client extends rest_client {
 	//----------------------------------------
 	      $response=NULL;
 	      
-	      curl_setopt ($this->curl , CURLOPT_HEADER, 0);
-	      curl_setopt($this->curl , CURLOPT_RETURNTRANSFER, 1); 
-	      curl_setopt($this->curl , CURLOPT_FOLLOWLOCATION, 1);
-		  
 	      $this->get($resource);
 	      $success=$this->hasSucceed();
+
 	      if($success) 
 		  $response=$this->get_response_body();
 	      return $response;
@@ -341,29 +340,42 @@ class HTTP_curl_client extends rest_client {
 		$error_no=0;
 		$unknown=false;
 		
+		$commands=array_keys($this->commands);
+		
 		try {
-		      switch($command) {
-			  case "GET":  // [Perform HTTP GET on URL [hostname].[uri_base].[resource parameter passed to method]]
-			      $items=$this->getResponse($resource,$success) ;       
-			      break;
-			  case "POST": //[Perform HTTP POST on passed resource reference, data can be in form allowed by curl_setopt CURLOPT_POSTFIELDS]
-			      $items=$this->postResponse($resource, $data, $success) ;
-			      break;
-			  case "PUT": //[Perform HTTP PUT on passed resource reference, data can be in form allowed by curl_setopt CURLOPT_POSTFIELDS]
-			      $items=$this->putResponse($resource, $data, $success) ;
-			      break;
-			  case "DELETE":  //[Perform HTTP DELETE on passed resource reference]
-			      $items=$this->deleteResponse($resource, $success); 
-			      break;
-			  case "HEAD":
-			      $items=$this->headResponse($resource, $success);
-			      break;
-			  default:
-			      $unknown=true;	
-			      $error_no=404;
-			      $this->logMessage("UNSUPPORTED COMMAND '$command'");
-		      }
+		
+		      if(in_array($command,$commands)) {
+			
+				$args=func_get_args();
+				$args[0]=&$success;
+				$items=call_user_func_array(array($this, "HTTP_{$command}_run"),$args);
+		
+		      } else {
 		      
+			    die("UNSUPPORTED COMMAND");
+			    
+			    switch($command) {
+				case "GET":  // [Perform HTTP GET on URL [hostname].[uri_base].[resource parameter passed to method]]
+				    $items=$this->getResponse($resource,$success) ;      
+				    break;
+				case "POST": //[Perform HTTP POST on passed resource reference, data can be in form allowed by curl_setopt CURLOPT_POSTFIELDS]
+				    $items=$this->postResponse($resource, $data, $success) ;
+				    break;
+				case "PUT": //[Perform HTTP PUT on passed resource reference, data can be in form allowed by curl_setopt CURLOPT_POSTFIELDS]
+				    $items=$this->putResponse($resource, $data, $success) ;
+				    break;
+				case "DELETE":  //[Perform HTTP DELETE on passed resource reference]
+				    $items=$this->deleteResponse($resource, $success); 
+				    break;
+				case "HEAD":
+				    $items=$this->headResponse($resource, $success);
+				    break;
+				default:
+				    $unknown=true;	
+				    $error_no=404;
+				    $this->logMessage("UNSUPPORTED COMMAND '$command'");
+			    }
+		      }
 		} catch(Exception $e) {
 		      $error_msg=$e->getMessage();
 		      $error_no=$this->get_response_code();
@@ -383,7 +395,7 @@ class HTTP_curl_client extends rest_client {
 /**
 * @desc Class to implement a basic REST client based on cURL
 */
-class rest_client 
+class rest_client extends CommandsContainer 
 {
 
     /**
@@ -584,7 +596,7 @@ class rest_client
     * @return void
     * @throws Exception
     */
-    protected function _curl_setup() {        
+    function _curl_setup() {        
         // reset all request/response properties
         $this->_reset_request_response_properties();
         
@@ -599,7 +611,7 @@ class rest_client
     * @return void
     * @throws Exception
     */
-    protected function _curl_multi_setup($handles_needed = NULL) {
+    function _curl_multi_setup($handles_needed = NULL) {
         if(!is_integer($handles_needed)) {
             throw new Exception('Non-integer value passed for handles_needed parameter - ' . __METHOD__ . ' Line ' . __LINE__);
         } else if ($handles_needed <= 0) {
@@ -626,7 +638,7 @@ class rest_client
     * @return resource
     * @throws Exception
     */
-    protected function _curl_init() {
+    function _curl_init() {
         // initialize cURL
         $curl = curl_init();
         if($curl === false) {
@@ -643,7 +655,7 @@ class rest_client
             
             if($this->user_agent) {
 		// Mask curl identity
-		curl_setopt($url, CURLOPT_USERAGENT, $this->user_agent);
+		curl_setopt($curl, CURLOPT_USERAGENT, $this->user_agent);
             }
             
             if (!empty($this->headers)) {
@@ -676,7 +688,7 @@ class rest_client
     * 
     * @return void
     */
-    protected function _curl_teardown() {
+   function _curl_teardown() {
         $this->_curl_close($this->curl);
         $this->curl = NULL;
     }
@@ -686,7 +698,7 @@ class rest_client
     * 
     * @return void
     */
-    protected function _curl_multi_teardown() {
+   function _curl_multi_teardown() {
         foreach ($this->curl_multi_handle_array as $curl) {
             curl_multi_remove_handle($this->curl_multi_handle, $curl);
             $this->_curl_close($curl);
@@ -701,7 +713,7 @@ class rest_client
     * 
     * @return void
     */
-    protected function _curl_close($curl = NULL) {
+    function _curl_close($curl = NULL) {
         if(!is_resource($curl)) {
             throw new Exception('cURL resource not passed as curl parameter - ' . __METHOD__ . ' Line ' . __LINE__);    
         }
@@ -714,7 +726,7 @@ class rest_client
     * @return void
     * @throws Exception
     */
-    protected function _curl_exec() {
+    function _curl_exec() {
         $curl_result = curl_exec($this->curl);
         if($curl_result === false) {
             // our cURL call failed for some reason
@@ -738,7 +750,7 @@ class rest_client
     * @return void
     * @throws Exception
     */
-    protected function _curl_multi_exec() {
+    function _curl_multi_exec() {
         // start multi_exec execution
         do {
             $status = curl_multi_exec($this->curl_multi_handle, $active);
@@ -765,7 +777,7 @@ class rest_client
     * 
     * @return void
     */
-    protected function _reset_request_response_properties() {
+  function _reset_request_response_properties() {
         $this->request_url = NULL;
         $this->request_header = NULL;
         $this->request_data = NULL;
@@ -787,7 +799,7 @@ class rest_client
     * @return void
     * @throws Exception
     */
-    protected function _set_request_url($action = NULL) {
+   function _set_request_url($action = NULL) {
         if (!is_string($action)) {
             throw new Exception('Non-string value passed as parameter - ' . __METHOD__ . ' Line ' . __LINE__); 
         }
@@ -802,7 +814,7 @@ class rest_client
     * @return void
     * @throws Exception
     */
-    protected function _set_multi_request_urls($actions = NULL) {
+    function _set_multi_request_urls($actions = NULL) {
         if (!is_array($actions)) {
             throw new Exception('A non-array value was passed for actions parameter - ' . __METHOD__ . ' Line ' . __LINE__);
         }
@@ -819,7 +831,7 @@ class rest_client
     * @return void
     * @throws Exception
     */
-    protected function _curl_set_url($action = NULL, $curl = NULL) {
+    function _curl_set_url($action = NULL, $curl = NULL) {
         if (!is_string($action)) {
             throw new Exception('Non-string value passed as parameter - ' . __METHOD__ . ' Line ' . __LINE__); 
         }
@@ -850,7 +862,7 @@ class rest_client
     * @return void
     * @throws Exception
     */
-    protected function _set_request_data($data = NULL) {
+    function _set_request_data($data = NULL) {
         if (is_null($data)) {
             throw new Exception('Nothing passed for data parameter - ' . __METHOD__ . ' Line ' . __LINE__);
         }
@@ -865,7 +877,7 @@ class rest_client
     * @return void
     * @throws Exception
     */
-    protected function _set_multi_request_data($data = NULL) {
+   function _set_multi_request_data($data = NULL) {
         if (!is_array($data)) {
             throw new Exception('Non-array passed for data parameter - ' . __METHOD__ . ' Line ' . __LINE__);
         }
@@ -884,7 +896,7 @@ class rest_client
     * @return void
     * @throws Exception
     */
-    protected function _curl_set_request_data($data = NULL, $curl = NULL) {
+    function _curl_set_request_data($data = NULL, $curl = NULL) {
         if (is_null($data)) {
             throw new Exception('Nothing passed as data parameter - ' . __METHOD__ . ' Line ' . __LINE__); 
         }
@@ -910,8 +922,8 @@ class rest_client
         }
         
         // remove any http(s):// at beginning of host name
-        $https_pattern = '#https//:#i';
-        $http_pattern = '#http//:#i';
+        $https_pattern = '#https://#i';
+        $http_pattern = '#http://#i';
         if (1 === preg_match($https_pattern, $host)) {
             // this needs to be SSL request
             $this->set_use_ssl(true);
@@ -934,6 +946,7 @@ class rest_client
             }
         }
         
+       
         $this->remote_host = $host;
         
         return $this;
@@ -1091,17 +1104,23 @@ class rest_client
     * @return rest_client
     * @throws Exception
     */
-    public function get($action = NULL) {
+   /* public function get($action = NULL) {
         if (!is_string($action)) {
             throw new Exception('A non-string value was passed for action parameter - ' . __METHOD__ . ' Line ' . __LINE__);
         }
         $this->_curl_setup();
         $this->_set_request_url($action);
+        
+        //Some extras that do a big diff to avoid to get a blank page specially when grabing homepage, we don't know the real file index.(htm|html|asp|php..) 
+        curl_setopt ($this->curl , CURLOPT_HEADER, 0);
+	curl_setopt($this->curl , CURLOPT_RETURNTRANSFER, 1); 
+	curl_setopt($this->curl , CURLOPT_FOLLOWLOCATION, 1);
+	      
         curl_setopt($this->curl, CURLOPT_HTTPGET, true); // explicitly set the method to GET
         $this->_curl_exec();
         
         return $this;
-    }
+    }*/
     
     /**
     * Method to perform multiple GET actions using curl_multi_exec. The max_handles parameter is optional and can be used to change the default maximum number of allowable multi_exec handles.
@@ -1111,7 +1130,7 @@ class rest_client
     * @return rest_client
     * @throws Exception
     */
-    public function multi_get($actions = NULL, $max_handles = NULL) {
+    /*public function multi_get($actions = NULL, $max_handles = NULL) {
         if (!is_array($actions)) {
             throw new Exception('A non-array value was passed for actions parameter - ' . __METHOD__ . ' Line ' . __LINE__);
         }
@@ -1135,7 +1154,7 @@ class rest_client
         $this->_curl_multi_exec();
         
         return $this;
-    }
+    }*/
     
     /**
     * Method to exexute POST on server
@@ -1145,7 +1164,7 @@ class rest_client
     * @return rest_client
     * @throws Exception
     */
-    public function post($action = NULL, $data = NULL) {
+    /*public function post($action = NULL, $data = NULL) {
         if (!is_string($action)) {
             throw new Exception('A non-string value was passed for action parameter - ' . __METHOD__ . ' Line ' . __LINE__);
         }
@@ -1159,7 +1178,7 @@ class rest_client
         $this->_curl_exec();
         
         return $this;
-    }
+    }*/
     
     /**
     * Method to perform multiple POST actions using curl_multi_exec. The max_handles parameter is optional and can be used to change the default maximum number of allowable multi_exec handles.
@@ -1170,7 +1189,7 @@ class rest_client
     * @return rest_client
     * @throws Exception
     */
-    public function multi_post($actions = NULL, $data = NULL, $max_handles = NULL) {
+    /*public function multi_post($actions = NULL, $data = NULL, $max_handles = NULL) {
         if (!is_array($actions)) {
             throw new Exception('A non-array value was passed for actions parameter - ' . __METHOD__ . ' Line ' . __LINE__);
         }
@@ -1204,7 +1223,7 @@ class rest_client
         $this->_curl_multi_exec();
         
         return $this;
-    }
+    }*/
     
     /**
     * Method to execute PUT on server
@@ -1214,7 +1233,7 @@ class rest_client
     * @return rest_client
     * @throws Exception
     */
-    public function put($action = NULL, $data = NULL) {
+   /* public function put($action = NULL, $data = NULL) {
         if (!is_string($action)) {
             throw new Exception('A non-string value was passed for action parameter - ' . __METHOD__ . ' Line ' . __LINE__);
         }
@@ -1228,7 +1247,7 @@ class rest_client
         $this->_curl_exec();
         
         return $this;
-    }
+    }*/
     
     /**
     * Method to perform multiple PUT actions using curl_multi_exec. The max_handles parameter is optional and can be used to change the default maximum number of allowable multi_exec handles.
@@ -1239,7 +1258,7 @@ class rest_client
     * @return rest_client
     * @throws Exception
     */
-    public function multi_put($actions = NULL, $data = NULL, $max_handles = NULL) {
+   /* public function multi_put($actions = NULL, $data = NULL, $max_handles = NULL) {
         if (!is_array($actions)) {
             throw new Exception('A non-array value was passed for actions parameter - ' . __METHOD__ . ' Line ' . __LINE__);
         }
@@ -1273,7 +1292,7 @@ class rest_client
         $this->_curl_multi_exec();
         
         return $this;
-    }
+    }*/
     
     /**
     * Method to execute DELETE on server
@@ -1282,7 +1301,7 @@ class rest_client
     * @return rest_client
     * @throws Exception
     */
-    public function delete($action = NULL) {
+    /*public function delete($action = NULL) {
         if (!is_string($action)) {
             throw new Exception('Nothing passed for data parameter - ' . __METHOD__ . ' Line ' . __LINE__);
         }
@@ -1292,7 +1311,7 @@ class rest_client
         $this->_curl_exec();
         
         return $this;
-    }
+    }*/
     
     /**
     * Method to perform multiple DELETE actions using curl_multi_exec. The max_handles parameter is optional and can be used to change the default maximum number of allowable multi_exec handles.
@@ -1302,7 +1321,7 @@ class rest_client
     * @return rest_client
     * @throws Exception
     */
-    public function multi_delete($actions = NULL, $max_handles = NULL) {
+    /*public function multi_delete($actions = NULL, $max_handles = NULL) {
         if (!is_array($actions)) {
             throw new Exception('A non-array value was passed for actions parameter - ' . __METHOD__ . ' Line ' . __LINE__);
         }
@@ -1327,7 +1346,7 @@ class rest_client
         $this->_curl_multi_exec();
         
         return $this;
-    }
+    }*/
 
     /**
     * Method to execute HEAD on server
@@ -1336,7 +1355,7 @@ class rest_client
     * @return rest_client
     * @throws Exception
     */
-    public function head($action = NULL) {
+    /*public function head($action = NULL) {
         if (!is_string($action)) {
             throw new Exception('A non-string value was passed for action parameter - ' . __METHOD__ . ' Line ' . __LINE__);
         }
@@ -1347,7 +1366,7 @@ class rest_client
         $this->_curl_exec();
         
         return $this;
-    }
+    }*/
     
     /**
     * Method to perform multiple HEAD actions using curl_multi_exec. The max_handles parameter is optional and can be used to change the default maximum number of allowable multi_exec handles.
@@ -1491,6 +1510,22 @@ class rest_client
     */
     public function get_multi_response_bodies() {
         return $this->multi_response_bodies;
+    }
+    
+    /**
+      FIXME: this is needed to access private curl handle from commands class, it'is uggly but I did not find nicer other way
+    **/
+    public function _get_curl_handle() {
+	  return  $this->curl;
+    }
+    
+    
+    public function _get_max_multi_exec_handles() {
+	  return $this->max_multi_exec_handles;
+    }
+    
+    public function _get_curl_multi_handle_array() {
+	  return $this->curl_multi_handle_array;
     }
 }
 ?>
